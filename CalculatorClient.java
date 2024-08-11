@@ -1,9 +1,15 @@
 import java.rmi.Naming;
 import java.util.UUID;
 
+/**
+ * Client class for testing the Calculator RMI service.
+ * Connects to the Calculator service, performs various operations, 
+ * and demonstrates interaction with the server using unique client IDs.
+ */
 public class CalculatorClient {
     public static void main(String[] args) {
         try {
+            // Lookup the Calculator service from the RMI registry
             Calculator calculator = (Calculator) Naming.lookup("rmi://localhost:1099/CalculatorService");
 
             // Generate a unique ID for this client
@@ -28,18 +34,24 @@ public class CalculatorClient {
         }
     }
 
+    /**
+     * Simulates interaction between multiple clients with unique client IDs.
+     * Demonstrates the use of the Calculator service by multiple clients.
+     * @param calculator The Calculator service instance.
+     */
     private static void multiClientTest(Calculator calculator) {
         try {
+            // Generate unique IDs for two clients
             String clientId1 = UUID.randomUUID().toString();
             String clientId2 = UUID.randomUUID().toString();
 
-            // Simulate client 1
+            // Simulate client 1 operations
             calculator.pushValue(clientId1, 5);
             calculator.pushValue(clientId1, 15);
             calculator.pushOperation(clientId1, "gcd");
             System.out.println("Client 1 GCD: " + calculator.pop(clientId1));
 
-            // Simulate client 2
+            // Simulate client 2 operations
             calculator.pushValue(clientId2, 14);
             calculator.pushValue(clientId2, 21);
             calculator.pushOperation(clientId2, "lcm");
