@@ -1,31 +1,40 @@
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.HashMap;
 import java.util.Stack;
-import java.util.ArrayList;
+import java.util.ArrayList;  // <-- Add this import statement
+import java.util.UUID;
 
 public class CalculatorImplementation extends UnicastRemoteObject implements Calculator {
-    private Stack<Integer> stack;
+    private HashMap<String, Stack<Integer>> clientStacks;
 
     protected CalculatorImplementation() throws RemoteException {
-        stack = new Stack<>();
+        clientStacks = new HashMap<>();
+    }
+
+    private Stack<Integer> getClientStack(String clientId) {
+        return clientStacks.computeIfAbsent(clientId, k -> new Stack<>());
     }
 
     @Override
-    public synchronized void pushValue(int val) throws RemoteException {
+    public synchronized void pushValue(String clientId, int val) throws RemoteException {
+        Stack<Integer> stack = getClientStack(clientId);
         stack.push(val);
     }
 
     @Override
-    public synchronized void pushOperation(String operator) throws RemoteException {
+    public synchronized void pushOperation(String clientId, String operator) throws RemoteException {
+        Stack<Integer> stack = getClientStack(clientId);
         if (stack.isEmpty()) {
             throw new RemoteException("Stack is empty. Cannot perform operation.");
         }
-        
+
+        // Pop all values and perform operation
         ArrayList<Integer> values = new ArrayList<>();
         while (!stack.isEmpty()) {
             values.add(stack.pop());
         }
-        
+
         int result = 0;
         switch (operator) {
             case "min":
@@ -43,12 +52,13 @@ public class CalculatorImplementation extends UnicastRemoteObject implements Cal
             default:
                 throw new RemoteException("Invalid operator.");
         }
-        
+
         stack.push(result);
     }
 
     @Override
-    public synchronized int pop() throws RemoteException {
+    public synchronized int pop(String clientId) throws RemoteException {
+        Stack<Integer> stack = getClientStack(clientId);
         if (stack.isEmpty()) {
             throw new RemoteException("Stack is empty. Cannot pop.");
         }
@@ -56,19 +66,20 @@ public class CalculatorImplementation extends UnicastRemoteObject implements Cal
     }
 
     @Override
-    public synchronized boolean isEmpty() throws RemoteException {
+    public synchronized boolean isEmpty(String clientId) throws RemoteException {
+        Stack<Integer> stack = getClientStack(clientId);
         return stack.isEmpty();
     }
 
     @Override
-    public synchronized int delayPop(int millis) throws RemoteException {
+    public synchronized int delayPop(String clientId, int millis) throws RemoteException {
         try {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RemoteException("Thread interrupted during delayPop.");
         }
-        return pop();
+        return pop(clientId);
     }
 
     private int gcd(ArrayList<Integer> values) {
