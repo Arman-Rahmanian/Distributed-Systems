@@ -12,19 +12,19 @@ import java.util.concurrent.TimeUnit;
  */
 public class CalculatorTest {
 
-    // Number of clients to simulate in each test
-    private static final int NUM_CLIENTS = 5;
+    private static final int NUM_CLIENTS = 5; // Number of simulated clients
+    private static final int DELAY_MILLIS = 1000; // Delay time in milliseconds for delayPop test
 
-    // Delay in milliseconds for testing delayPop operation
-    private static final int DELAY_MILLIS = 1000;
-
-    // Port number for the RMI registry
-    private static final int RMI_REGISTRY_PORT = 1099;
-
+    /**
+     * Main method to perform tests on the Calculator RMI service.
+     * It looks up the Calculator service from the RMI registry and
+     * performs various tests on the service methods.
+     * @param args Command line arguments (not used).
+     */
     public static void main(String[] args) {
         try {
             // Lookup the Calculator service from the RMI registry
-            Calculator calculator = (Calculator) Naming.lookup("rmi://localhost:" + RMI_REGISTRY_PORT + "/CalculatorService");
+            Calculator calculator = (Calculator) Naming.lookup("rmi://localhost:1099/CalculatorService");
 
             // Perform the different tests
             testPushValue(calculator);
@@ -40,20 +40,21 @@ public class CalculatorTest {
     }
 
     /**
-     * Tests pushValue operation with multiple clients.
-     * Each client pushes values onto their own stack and verifies the results.
+     * Test the pushValue method of the Calculator service.
+     * This test involves multiple clients pushing values onto their own stacks
+     * and then popping the values to ensure they are correctly pushed.
      * @param calculator The Calculator service instance.
-     * @throws Exception if an RMI-related error occurs.
+     * @throws Exception If an error occurs during testing.
      */
     private static void testPushValue(Calculator calculator) throws Exception {
         System.out.println("Testing pushValue...");
 
-        // Create a CountDownLatch to ensure all client threads finish before continuing
+        // Create a CountDownLatch to wait for all client threads to complete
         CountDownLatch latch = new CountDownLatch(NUM_CLIENTS);
-
-        // Create a fixed thread pool to simulate multiple clients
+        // Create a fixed thread pool for client threads
         ExecutorService executor = Executors.newFixedThreadPool(NUM_CLIENTS);
 
+        // Submit tasks for each client
         for (int i = 0; i < NUM_CLIENTS; i++) {
             final String clientId = "client" + i;
             executor.submit(() -> {
@@ -64,16 +65,16 @@ public class CalculatorTest {
                     }
 
                     // Verify the pushed values by popping them off
-                    for (int val = 1; val <= 5; val++) {
+                    for (int expectedVal = 5; expectedVal >= 1; expectedVal--) {
                         int poppedValue = calculator.pop(clientId);
-                        if (poppedValue != val) {
-                            System.err.println("pushValue test failed for " + clientId + ": expected " + val + " but got " + poppedValue);
+                        if (poppedValue != expectedVal) {
+                            System.err.println("pushValue test failed for " + clientId + ": expected " + expectedVal + " but got " + poppedValue);
                         }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
-                    // Count down the latch to signal completion of this thread
+                    // Decrease the latch count when the task is done
                     latch.countDown();
                 }
             });
@@ -81,26 +82,28 @@ public class CalculatorTest {
 
         // Wait for all client threads to finish
         latch.await();
+        // Shut down the executor service
         executor.shutdown();
         executor.awaitTermination(1, TimeUnit.MINUTES);
         System.out.println("pushValue test completed.");
     }
 
     /**
-     * Tests pushOperation operation with multiple clients.
-     * Each client pushes values and operations onto their own stack and verifies the results.
+     * Test the pushOperation method of the Calculator service.
+     * This test involves multiple clients pushing values onto their stacks,
+     * performing "min" and "max" operations, and verifying the results.
      * @param calculator The Calculator service instance.
-     * @throws Exception if an RMI-related error occurs.
+     * @throws Exception If an error occurs during testing.
      */
     private static void testPushOperation(Calculator calculator) throws Exception {
         System.out.println("Testing pushOperation...");
 
-        // Create a CountDownLatch to ensure all client threads finish before continuing
+        // Create a CountDownLatch to wait for all client threads to complete
         CountDownLatch latch = new CountDownLatch(NUM_CLIENTS);
-
-        // Create a fixed thread pool to simulate multiple clients
+        // Create a fixed thread pool for client threads
         ExecutorService executor = Executors.newFixedThreadPool(NUM_CLIENTS);
 
+        // Submit tasks for each client
         for (int i = 0; i < NUM_CLIENTS; i++) {
             final String clientId = "client" + i;
             executor.submit(() -> {
@@ -127,7 +130,7 @@ public class CalculatorTest {
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
-                    // Count down the latch to signal completion of this thread
+                    // Decrease the latch count when the task is done
                     latch.countDown();
                 }
             });
@@ -135,26 +138,28 @@ public class CalculatorTest {
 
         // Wait for all client threads to finish
         latch.await();
+        // Shut down the executor service
         executor.shutdown();
         executor.awaitTermination(1, TimeUnit.MINUTES);
         System.out.println("pushOperation test completed.");
     }
 
     /**
-     * Tests pop operation with multiple clients.
-     * Each client pops values from their own stack and verifies the results.
+     * Test the pop method of the Calculator service.
+     * This test involves multiple clients pushing values onto their stacks
+     * and then popping them off to verify the order (LIFO).
      * @param calculator The Calculator service instance.
-     * @throws Exception if an RMI-related error occurs.
+     * @throws Exception If an error occurs during testing.
      */
     private static void testPop(Calculator calculator) throws Exception {
         System.out.println("Testing pop...");
 
-        // Create a CountDownLatch to ensure all client threads finish before continuing
+        // Create a CountDownLatch to wait for all client threads to complete
         CountDownLatch latch = new CountDownLatch(NUM_CLIENTS);
-
-        // Create a fixed thread pool to simulate multiple clients
+        // Create a fixed thread pool for client threads
         ExecutorService executor = Executors.newFixedThreadPool(NUM_CLIENTS);
 
+        // Submit tasks for each client
         for (int i = 0; i < NUM_CLIENTS; i++) {
             final String clientId = "client" + i;
             executor.submit(() -> {
@@ -174,7 +179,7 @@ public class CalculatorTest {
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
-                    // Count down the latch to signal completion of this thread
+                    // Decrease the latch count when the task is done
                     latch.countDown();
                 }
             });
@@ -182,26 +187,28 @@ public class CalculatorTest {
 
         // Wait for all client threads to finish
         latch.await();
+        // Shut down the executor service
         executor.shutdown();
         executor.awaitTermination(1, TimeUnit.MINUTES);
         System.out.println("pop test completed.");
     }
 
     /**
-     * Tests delayPop operation with multiple clients.
-     * Each client pops a value from their own stack after a delay and verifies the results.
+     * Test the delayPop method of the Calculator service.
+     * This test involves multiple clients pushing values onto their stacks,
+     * performing a delayed pop operation, and verifying the result.
      * @param calculator The Calculator service instance.
-     * @throws Exception if an RMI-related error occurs.
+     * @throws Exception If an error occurs during testing.
      */
     private static void testDelayPop(Calculator calculator) throws Exception {
         System.out.println("Testing delayPop...");
 
-        // Create a CountDownLatch to ensure all client threads finish before continuing
+        // Create a CountDownLatch to wait for all client threads to complete
         CountDownLatch latch = new CountDownLatch(NUM_CLIENTS);
-
-        // Create a fixed thread pool to simulate multiple clients
+        // Create a fixed thread pool for client threads
         ExecutorService executor = Executors.newFixedThreadPool(NUM_CLIENTS);
 
+        // Submit tasks for each client
         for (int i = 0; i < NUM_CLIENTS; i++) {
             final String clientId = "client" + i;
             executor.submit(() -> {
@@ -220,7 +227,7 @@ public class CalculatorTest {
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
-                    // Count down the latch to signal completion of this thread
+                    // Decrease the latch count when the task is done
                     latch.countDown();
                 }
             });
@@ -228,6 +235,7 @@ public class CalculatorTest {
 
         // Wait for all client threads to finish
         latch.await();
+        // Shut down the executor service
         executor.shutdown();
         executor.awaitTermination(1, TimeUnit.MINUTES);
         System.out.println("delayPop test completed.");
