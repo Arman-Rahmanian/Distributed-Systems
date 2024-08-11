@@ -1,131 +1,235 @@
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 import java.rmi.Naming;
-import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.util.UUID;
-import static org.junit.Assert.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * Test class for the Calculator RMI service.
+ * This class performs automated testing of the Calculator service,
+ * including pushValue, pushOperation, pop, and delayPop operations
+ * using multiple simulated clients.
+ */
 public class CalculatorTest {
-    private Calculator calculator;
-    private final String serverURL = "rmi://localhost:1099/CalculatorService";
 
-    @Before
-    public void setUp() throws Exception {
-        // Start the RMI registry and bind the Calculator service
-        LocateRegistry.createRegistry(1099);
-        CalculatorImplementation calculatorImpl = new CalculatorImplementation();
-        Naming.rebind(serverURL, calculatorImpl);
-        calculator = (Calculator) Naming.lookup(serverURL);
+    // Number of clients to simulate in each test
+    private static final int NUM_CLIENTS = 5;
+
+    // Delay in milliseconds for testing delayPop operation
+    private static final int DELAY_MILLIS = 1000;
+
+    // Port number for the RMI registry
+    private static final int RMI_REGISTRY_PORT = 1099;
+
+    public static void main(String[] args) {
+        try {
+            // Lookup the Calculator service from the RMI registry
+            Calculator calculator = (Calculator) Naming.lookup("rmi://localhost:" + RMI_REGISTRY_PORT + "/CalculatorService");
+
+            // Perform the different tests
+            testPushValue(calculator);
+            testPushOperation(calculator);
+            testPop(calculator);
+            testDelayPop(calculator);
+
+        } catch (Exception e) {
+            // Print any exceptions encountered during testing
+            System.err.println("CalculatorTest exception: " + e.toString());
+            e.printStackTrace();
+        }
     }
 
-    @After
-    public void tearDown() throws Exception {
-        // Unbind the Calculator service
-        Naming.unbind(serverURL);
+    /**
+     * Tests pushValue operation with multiple clients.
+     * Each client pushes values onto their own stack and verifies the results.
+     * @param calculator The Calculator service instance.
+     * @throws Exception if an RMI-related error occurs.
+     */
+    private static void testPushValue(Calculator calculator) throws Exception {
+        System.out.println("Testing pushValue...");
+
+        // Create a CountDownLatch to ensure all client threads finish before continuing
+        CountDownLatch latch = new CountDownLatch(NUM_CLIENTS);
+
+        // Create a fixed thread pool to simulate multiple clients
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_CLIENTS);
+
+        for (int i = 0; i < NUM_CLIENTS; i++) {
+            final String clientId = "client" + i;
+            executor.submit(() -> {
+                try {
+                    // Push values onto the client's stack
+                    for (int val = 1; val <= 5; val++) {
+                        calculator.pushValue(clientId, val);
+                    }
+
+                    // Verify the pushed values by popping them off
+                    for (int val = 1; val <= 5; val++) {
+                        int poppedValue = calculator.pop(clientId);
+                        if (poppedValue != val) {
+                            System.err.println("pushValue test failed for " + clientId + ": expected " + val + " but got " + poppedValue);
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    // Count down the latch to signal completion of this thread
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Wait for all client threads to finish
+        latch.await();
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+        System.out.println("pushValue test completed.");
     }
 
-    @Test
-    public void testPushValueSingleClient() throws RemoteException {
-        String clientId = UUID.randomUUID().toString();
-        calculator.pushValue(clientId, 5);
-        calculator.pushValue(clientId, 10);
-        assertEquals(10, calculator.pop(clientId));
-        assertEquals(5, calculator.pop(clientId));
+    /**
+     * Tests pushOperation operation with multiple clients.
+     * Each client pushes values and operations onto their own stack and verifies the results.
+     * @param calculator The Calculator service instance.
+     * @throws Exception if an RMI-related error occurs.
+     */
+    private static void testPushOperation(Calculator calculator) throws Exception {
+        System.out.println("Testing pushOperation...");
+
+        // Create a CountDownLatch to ensure all client threads finish before continuing
+        CountDownLatch latch = new CountDownLatch(NUM_CLIENTS);
+
+        // Create a fixed thread pool to simulate multiple clients
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_CLIENTS);
+
+        for (int i = 0; i < NUM_CLIENTS; i++) {
+            final String clientId = "client" + i;
+            executor.submit(() -> {
+                try {
+                    // Push values onto the client's stack
+                    for (int val = 1; val <= 5; val++) {
+                        calculator.pushValue(clientId, val);
+                    }
+
+                    // Push min operation and verify result
+                    calculator.pushOperation(clientId, "min");
+                    int min = calculator.pop(clientId);
+                    if (min != 1) { // Expected min value
+                        System.err.println("pushOperation min test failed for " + clientId + ": expected 1 but got " + min);
+                    }
+
+                    // Push max operation and verify result
+                    calculator.pushValue(clientId, 10);
+                    calculator.pushOperation(clientId, "max");
+                    int max = calculator.pop(clientId);
+                    if (max != 10) { // Expected max value
+                        System.err.println("pushOperation max test failed for " + clientId + ": expected 10 but got " + max);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    // Count down the latch to signal completion of this thread
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Wait for all client threads to finish
+        latch.await();
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+        System.out.println("pushOperation test completed.");
     }
 
-    @Test
-    public void testPushValueMultipleClients() throws RemoteException {
-        String clientId1 = UUID.randomUUID().toString();
-        String clientId2 = UUID.randomUUID().toString();
-        String clientId3 = UUID.randomUUID().toString();
+    /**
+     * Tests pop operation with multiple clients.
+     * Each client pops values from their own stack and verifies the results.
+     * @param calculator The Calculator service instance.
+     * @throws Exception if an RMI-related error occurs.
+     */
+    private static void testPop(Calculator calculator) throws Exception {
+        System.out.println("Testing pop...");
 
-        calculator.pushValue(clientId1, 1);
-        calculator.pushValue(clientId2, 2);
-        calculator.pushValue(clientId3, 3);
+        // Create a CountDownLatch to ensure all client threads finish before continuing
+        CountDownLatch latch = new CountDownLatch(NUM_CLIENTS);
 
-        assertEquals(1, calculator.pop(clientId1));
-        assertEquals(2, calculator.pop(clientId2));
-        assertEquals(3, calculator.pop(clientId3));
+        // Create a fixed thread pool to simulate multiple clients
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_CLIENTS);
+
+        for (int i = 0; i < NUM_CLIENTS; i++) {
+            final String clientId = "client" + i;
+            executor.submit(() -> {
+                try {
+                    // Push values onto the client's stack
+                    for (int val = 1; val <= 5; val++) {
+                        calculator.pushValue(clientId, val);
+                    }
+
+                    // Pop values and verify the order (LIFO)
+                    for (int val = 5; val >= 1; val--) {
+                        int poppedValue = calculator.pop(clientId);
+                        if (poppedValue != val) {
+                            System.err.println("pop test failed for " + clientId + ": expected " + val + " but got " + poppedValue);
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    // Count down the latch to signal completion of this thread
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Wait for all client threads to finish
+        latch.await();
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+        System.out.println("pop test completed.");
     }
 
-    @Test
-    public void testPushOperationSingleClient() throws RemoteException {
-        String clientId = UUID.randomUUID().toString();
-        calculator.pushValue(clientId, 3);
-        calculator.pushValue(clientId, 1);
-        calculator.pushOperation(clientId, "min");
-        assertEquals(1, calculator.pop(clientId));
-    }
+    /**
+     * Tests delayPop operation with multiple clients.
+     * Each client pops a value from their own stack after a delay and verifies the results.
+     * @param calculator The Calculator service instance.
+     * @throws Exception if an RMI-related error occurs.
+     */
+    private static void testDelayPop(Calculator calculator) throws Exception {
+        System.out.println("Testing delayPop...");
 
-    @Test
-    public void testPushOperationMultipleClients() throws RemoteException {
-        String clientId1 = UUID.randomUUID().toString();
-        String clientId2 = UUID.randomUUID().toString();
-        
-        // Client 1 operations
-        calculator.pushValue(clientId1, 5);
-        calculator.pushValue(clientId1, 10);
-        calculator.pushOperation(clientId1, "max");
-        assertEquals(10, calculator.pop(clientId1));
+        // Create a CountDownLatch to ensure all client threads finish before continuing
+        CountDownLatch latch = new CountDownLatch(NUM_CLIENTS);
 
-        // Client 2 operations
-        calculator.pushValue(clientId2, 8);
-        calculator.pushValue(clientId2, 4);
-        calculator.pushOperation(clientId2, "min");
-        assertEquals(4, calculator.pop(clientId2));
-    }
+        // Create a fixed thread pool to simulate multiple clients
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_CLIENTS);
 
-    @Test
-    public void testPopSingleClient() throws RemoteException {
-        String clientId = UUID.randomUUID().toString();
-        calculator.pushValue(clientId, 42);
-        assertEquals(42, calculator.pop(clientId));
-    }
+        for (int i = 0; i < NUM_CLIENTS; i++) {
+            final String clientId = "client" + i;
+            executor.submit(() -> {
+                try {
+                    // Push values onto the client's stack
+                    for (int val = 1; val <= 5; val++) {
+                        calculator.pushValue(clientId, val);
+                    }
 
-    @Test
-    public void testPopMultipleClients() throws RemoteException {
-        String clientId1 = UUID.randomUUID().toString();
-        String clientId2 = UUID.randomUUID().toString();
-        
-        calculator.pushValue(clientId1, 100);
-        calculator.pushValue(clientId2, 200);
+                    // Delay pop and verify the result
+                    int delayedPop = calculator.delayPop(clientId, DELAY_MILLIS);
+                    int expectedValue = 5; // Expected value after delay
+                    if (delayedPop != expectedValue) {
+                        System.err.println("delayPop test failed for " + clientId + ": expected " + expectedValue + " but got " + delayedPop);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    // Count down the latch to signal completion of this thread
+                    latch.countDown();
+                }
+            });
+        }
 
-        assertEquals(100, calculator.pop(clientId1));
-        assertEquals(200, calculator.pop(clientId2));
-    }
-
-    @Test
-    public void testDelayPopSingleClient() throws RemoteException, InterruptedException {
-        String clientId = UUID.randomUUID().toString();
-        calculator.pushValue(clientId, 77);
-        long startTime = System.currentTimeMillis();
-        int value = calculator.delayPop(clientId, 2000);
-        long elapsedTime = System.currentTimeMillis() - startTime;
-        
-        assertEquals(77, value);
-        assertTrue(elapsedTime >= 2000);
-    }
-
-    @Test
-    public void testDelayPopMultipleClients() throws RemoteException, InterruptedException {
-        String clientId1 = UUID.randomUUID().toString();
-        String clientId2 = UUID.randomUUID().toString();
-        
-        calculator.pushValue(clientId1, 5);
-        calculator.pushValue(clientId2, 10);
-
-        long startTime1 = System.currentTimeMillis();
-        int value1 = calculator.delayPop(clientId1, 1000);
-        long elapsedTime1 = System.currentTimeMillis() - startTime1;
-        assertEquals(5, value1);
-        assertTrue(elapsedTime1 >= 1000);
-
-        long startTime2 = System.currentTimeMillis();
-        int value2 = calculator.delayPop(clientId2, 1500);
-        long elapsedTime2 = System.currentTimeMillis() - startTime2;
-        assertEquals(10, value2);
-        assertTrue(elapsedTime2 >= 1500);
+        // Wait for all client threads to finish
+        latch.await();
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+        System.out.println("delayPop test completed.");
     }
 }

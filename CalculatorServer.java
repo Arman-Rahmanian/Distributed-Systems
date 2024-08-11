@@ -9,8 +9,8 @@ import java.rmi.registry.LocateRegistry;
 public class CalculatorServer {
     public static void main(String[] args) {
         try {
-            // Start the RMI registry on the default port
-            LocateRegistry.createRegistry(1099);
+            // Start the RMI registry on port
+            LocateRegistry.createRegistry(1100);
 
             // Create an instance of the CalculatorImplementation
             CalculatorImplementation calculatorImpl = new CalculatorImplementation();
